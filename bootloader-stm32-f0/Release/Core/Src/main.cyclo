@@ -1,0 +1,15 @@
+../Core/Src/main.c:164:17:GetPage	4
+../Core/Src/main.c:79:6:intToStr	4
+../Core/Src/main.c:100:6:serialPutString	2
+../Core/Src/main.c:114:19:serialPutByte	1
+../Core/Src/main.c:122:6:goToApps	2
+../Core/Src/main.c:224:6:eraseFlashMemory	2
+../Core/Src/main.c:253:6:writeFlashMemory	3
+../Core/Src/main.c:277:6:readFlashMemory	2
+../Core/Src/main.c:295:6:copyFlashMemory	2
+../Core/Src/main.c:332:6:backupFlashMemory	1
+../Core/Src/main.c:345:6:rollbackFlashMemory	1
+../Core/Src/main.c:591:6:SystemClock_Config	7
+../Core/Src/main.c:361:5:main	22
+../Core/Src/main.c:789:6:HAL_TIM_PeriodElapsedCallback	2
+../Core/Src/main.c:805:6:Error_Handler	1

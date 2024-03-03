@@ -1,0 +1,59 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.20"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "bootloader-stm32-f0",
+					"targetIndexes" : 
+					[
+						0
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "bootloader-stm32-f0::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-bootloader-stm32-f0-Debug-97bef4c13ea3d0accc2e.json",
+					"name" : "bootloader-stm32-f0",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/alviori/Documents/github-pitik/iot-cpp-iap/iot-cpp/general/iap-stm32f0/bootloader-stm32-f0/build/debug/build",
+		"source" : "/home/alviori/Documents/github-pitik/iot-cpp-iap/iot-cpp/general/iap-stm32f0/bootloader-stm32-f0"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 2
+	}
+}
