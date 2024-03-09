@@ -66,8 +66,8 @@ all: main-build
 main-build: userapp-stm32-f0.elf secondary-outputs
 
 # Tool invocations
-userapp-stm32-f0.elf userapp-stm32-f0.map: $(OBJS) $(USER_OBJS) /home/alviori/Documents/github-pitik/iot-cpp-iap/iot-cpp/general/iap-stm32f0/userapp-stm32-f0/STM32F030CCTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "userapp-stm32-f0.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0 -T"/home/alviori/Documents/github-pitik/iot-cpp-iap/iot-cpp/general/iap-stm32f0/userapp-stm32-f0/STM32F030CCTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="userapp-stm32-f0.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+userapp-stm32-f0.elf userapp-stm32-f0.map: $(OBJS) $(USER_OBJS) /home/alviori/Documents/github-vio/relocate-vector-table-STM32-M0/userapp-stm32-f0/STM32F030CCTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "userapp-stm32-f0.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0 -T"/home/alviori/Documents/github-vio/relocate-vector-table-STM32-M0/userapp-stm32-f0/STM32F030CCTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="userapp-stm32-f0.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

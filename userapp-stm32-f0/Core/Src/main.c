@@ -182,13 +182,15 @@ int main(void) {
     LL_IWDG_ReloadCounter(IWDG);
     uint16_t count = 0;
     char stringBuff[30] = {0};
-    serialPutString("---USER APPLICATION 1---");
+    serialPutString("---USER APPLICATION 1---\r\n");
+    // serialPutString("---USER APPLICATION 1 IAP---\r\n");
     while (1) {
         LL_IWDG_ReloadCounter(IWDG);
 
         HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
 
         serialPutString("Count User 1: ");
+        // serialPutString("Count User 1 IAP: ");
         intToStr(stringBuff, count);
         serialPutString(stringBuff);
         serialPutString((uint8_t *)"\r\n");

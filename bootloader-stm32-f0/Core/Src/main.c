@@ -69,6 +69,11 @@ static void MX_USART2_UART_Init(void);
 #define HEADER_SIZE 3
 #define RECEIVE_FROM_ESP32_TIMEOUT 2000
 #define PARTS_SIZE 107000
+#define ONE_PAGE_SIZE 2048
+#define TOTAL_PAGES 125
+#define START_BIN_HEADER 0xaa
+#define PACKAGE_BIN_HEADER 0xbb
+#define FINISHED_BIN_HEADER 0xcc
 
 /**
  * @brief  Convert an Integer to a string
@@ -125,7 +130,7 @@ void goToApps(uint32_t applicationAddress) {
     pFunction JumpToApplication;
 
     if (((*(__IO uint32_t *)applicationAddress) & 0x2FFE0000) == 0x20000000) {
-        HAL_UART_Transmit(&huart5, "Going to User Application\n", 30, 10);
+        serialPutString("Going to User Application\r\n");
         // JumpAddress = *(__IO uint32_t *)(APPLICATION_ADDRESS + 4);
         JumpAddress = *(__IO uint32_t *)(applicationAddress + 4);
         JumpToApplication = (pFunction)JumpAddress;
@@ -141,28 +146,54 @@ void goToApps(uint32_t applicationAddress) {
  * @retval CRC value
  */
 static uint16_t modbusCRC16Cal(const unsigned char *buf, unsigned int len) {
+    static const uint16_t table[256] = {
+        0x0000, 0xC0C1, 0xC181, 0x0140, 0xC301, 0x03C0, 0x0280, 0xC241,
+        0xC601, 0x06C0, 0x0780, 0xC741, 0x0500, 0xC5C1, 0xC481, 0x0440,
+        0xCC01, 0x0CC0, 0x0D80, 0xCD41, 0x0F00, 0xCFC1, 0xCE81, 0x0E40,
+        0x0A00, 0xCAC1, 0xCB81, 0x0B40, 0xC901, 0x09C0, 0x0880, 0xC841,
+        0xD801, 0x18C0, 0x1980, 0xD941, 0x1B00, 0xDBC1, 0xDA81, 0x1A40,
+        0x1E00, 0xDEC1, 0xDF81, 0x1F40, 0xDD01, 0x1DC0, 0x1C80, 0xDC41,
+        0x1400, 0xD4C1, 0xD581, 0x1540, 0xD701, 0x17C0, 0x1680, 0xD641,
+        0xD201, 0x12C0, 0x1380, 0xD341, 0x1100, 0xD1C1, 0xD081, 0x1040,
+        0xF001, 0x30C0, 0x3180, 0xF141, 0x3300, 0xF3C1, 0xF281, 0x3240,
+        0x3600, 0xF6C1, 0xF781, 0x3740, 0xF501, 0x35C0, 0x3480, 0xF441,
+        0x3C00, 0xFCC1, 0xFD81, 0x3D40, 0xFF01, 0x3FC0, 0x3E80, 0xFE41,
+        0xFA01, 0x3AC0, 0x3B80, 0xFB41, 0x3900, 0xF9C1, 0xF881, 0x3840,
+        0x2800, 0xE8C1, 0xE981, 0x2940, 0xEB01, 0x2BC0, 0x2A80, 0xEA41,
+        0xEE01, 0x2EC0, 0x2F80, 0xEF41, 0x2D00, 0xEDC1, 0xEC81, 0x2C40,
+        0xE401, 0x24C0, 0x2580, 0xE541, 0x2700, 0xE7C1, 0xE681, 0x2640,
+        0x2200, 0xE2C1, 0xE381, 0x2340, 0xE101, 0x21C0, 0x2080, 0xE041,
+        0xA001, 0x60C0, 0x6180, 0xA141, 0x6300, 0xA3C1, 0xA281, 0x6240,
+        0x6600, 0xA6C1, 0xA781, 0x6740, 0xA501, 0x65C0, 0x6480, 0xA441,
+        0x6C00, 0xACC1, 0xAD81, 0x6D40, 0xAF01, 0x6FC0, 0x6E80, 0xAE41,
+        0xAA01, 0x6AC0, 0x6B80, 0xAB41, 0x6900, 0xA9C1, 0xA881, 0x6840,
+        0x7800, 0xB8C1, 0xB981, 0x7940, 0xBB01, 0x7BC0, 0x7A80, 0xBA41,
+        0xBE01, 0x7EC0, 0x7F80, 0xBF41, 0x7D00, 0xBDC1, 0xBC81, 0x7C40,
+        0xB401, 0x74C0, 0x7580, 0xB541, 0x7700, 0xB7C1, 0xB681, 0x7640,
+        0x7200, 0xB2C1, 0xB381, 0x7340, 0xB101, 0x71C0, 0x7080, 0xB041,
+        0x5000, 0x90C1, 0x9181, 0x5140, 0x9301, 0x53C0, 0x5280, 0x9241,
+        0x9601, 0x56C0, 0x5780, 0x9741, 0x5500, 0x95C1, 0x9481, 0x5440,
+        0x9C01, 0x5CC0, 0x5D80, 0x9D41, 0x5F00, 0x9FC1, 0x9E81, 0x5E40,
+        0x5A00, 0x9AC1, 0x9B81, 0x5B40, 0x9901, 0x59C0, 0x5880, 0x9841,
+        0x8801, 0x48C0, 0x4980, 0x8941, 0x4B00, 0x8BC1, 0x8A81, 0x4A40,
+        0x4E00, 0x8EC1, 0x8F81, 0x4F40, 0x8D01, 0x4DC0, 0x4C80, 0x8C41,
+        0x4400, 0x84C1, 0x8581, 0x4540, 0x8701, 0x47C0, 0x4680, 0x8641,
+        0x8201, 0x42C0, 0x4380, 0x8341, 0x4100, 0x81C1, 0x8081, 0x4040};
+
+    uint8_t xor = 0;
     uint16_t crc = 0xFFFF;
-    unsigned int i = 0;
-    char bit = 0;
 
-    for (i = 0; i < len; i++) {
-        crc ^= buf[i];
-
-        for (bit = 0; bit < 8; bit++) {
-            if (crc & 0x0001) {
-                crc >>= 1;
-                crc ^= 0xA001;
-            } else {
-                crc >>= 1;
-            }
-        }
+    while (len--) {
+        xor = (*buf++) ^ crc;
+        crc >>= 8;
+        crc ^= table[xor];
     }
 
     return crc;
 }
 
 static uint32_t GetPage(uint32_t Address) {
-    for (int indx = 0; indx < 256; indx++) {
+    for (int indx = 0; indx < TOTAL_PAGES; indx++) {
         if ((Address < (0x08000000 + (FLASH_PAGE_SIZE * (indx + 1)))) && (Address >= (0x08000000 + FLASH_PAGE_SIZE * indx))) {
             return (0x08000000 + FLASH_PAGE_SIZE * indx);
         }
@@ -293,12 +324,12 @@ void readFlashMemory(uint32_t startPageAddress, uint32_t *receiveBuff, uint16_t 
  * @param  dstAddress destination
  */
 void copyFlashMemory(uint32_t srcAddress, uint32_t dstAddress) {
-    // char stringBuff1[30] = {0};
+    char stringBuff1[30] = {0};
     uint32_t receiveBuff[2 * CHUNK_SIZE] = {0};
-    uint32_t part = PARTS_SIZE / CHUNK_SIZE;
-
+    uint32_t num = (CHUNK_SIZE / 4) + ((CHUNK_SIZE % 4) != 0);
+    uint32_t part = (PARTS_SIZE / num) + ((PARTS_SIZE / num) != 0);
+    LL_IWDG_ReloadCounter(IWDG);
     for (size_t i = 0; i < part; i++) {
-        uint32_t num = (CHUNK_SIZE / 4) + ((CHUNK_SIZE % 4) != 0);
 
         // intToStr(stringBuff1, srcAddress);
         // serialPutString(stringBuff1);
@@ -308,6 +339,7 @@ void copyFlashMemory(uint32_t srcAddress, uint32_t dstAddress) {
         // serialPutString(stringBuff1);
         // serialPutString((uint8_t *)"\r\n");
         // serialPutString((uint8_t *)"============================\r\n");
+        // serialPutString((uint8_t *)".");
 
         readFlashMemory(srcAddress, receiveBuff, num);
         // char stringBuff[30] = {0};
@@ -318,21 +350,22 @@ void copyFlashMemory(uint32_t srcAddress, uint32_t dstAddress) {
 
         //     LL_IWDG_ReloadCounter(IWDG);
         // }
-        // HAL_Delay(100);
         writeFlashMemory(dstAddress, receiveBuff, num);
 
         srcAddress += num;
         dstAddress += num;
     }
+    serialPutString((uint8_t *)"\r\n");
 }
 
 /**
  * @brief  Step of backup flash memory
  */
-void backupFlashMemory() {
+void backupFlashMemory(uint16_t pageInParts) {
+    LL_IWDG_ReloadCounter(IWDG);
     serialPutString((uint8_t *)"Backup Flash Memory Start...\r\n");
 
-    eraseFlashMemory(APPLICATION_ADDRESS_2, PARTS_SIZE);
+    eraseFlashMemory(APPLICATION_ADDRESS_2, pageInParts);
     serialPutString((uint8_t *)"Erase Destination Flash Memory Finished...\r\n");
 
     copyFlashMemory(APPLICATION_ADDRESS_1, APPLICATION_ADDRESS_2);
@@ -342,10 +375,11 @@ void backupFlashMemory() {
 /**
  * @brief  Step of rollback flash memory
  */
-void rollbackFlashMemory() {
+void rollbackFlashMemory(uint16_t pageInParts) {
+    LL_IWDG_ReloadCounter(IWDG);
     serialPutString((uint8_t *)"Rollback Flash Memory Start...\r\n");
 
-    eraseFlashMemory(APPLICATION_ADDRESS_1, PARTS_SIZE);
+    eraseFlashMemory(APPLICATION_ADDRESS_1, pageInParts);
     serialPutString((uint8_t *)"Erase Source Flash Memory Finished...\r\n");
 
     copyFlashMemory(APPLICATION_ADDRESS_2, APPLICATION_ADDRESS_1);
@@ -401,6 +435,10 @@ int main(void) {
     uint32_t buff_32bit[2 * CHUNK_SIZE] = {0};
     uint32_t receiveBuff_32bit[2 * CHUNK_SIZE] = {0};
     uint32_t flashDestination = 0;
+    uint16_t pagesInParts = (PARTS_SIZE / ONE_PAGE_SIZE) + (PARTS_SIZE % ONE_PAGE_SIZE != 0);
+    uint16_t checkSumFalse = 0;
+    uint16_t chunksFromSource = 0;
+    uint16_t chunksInProcess = 0;
 
     char stringBuff[30] = {0};
 
@@ -427,7 +465,7 @@ int main(void) {
         break;
 
     case 2:
-    	goToApps(APPLICATION_ADDRESS_2);  // going to User App 2
+        goToApps(APPLICATION_ADDRESS_2);  // going to User App 2
         break;
 
     case 3:
@@ -475,7 +513,7 @@ int main(void) {
         //     break;
 
     case 7:  // testing for rollback flash memory to source address
-        rollbackFlashMemory();
+        rollbackFlashMemory(pagesInParts);
         goToApps(APPLICATION_ADDRESS_1);
         break;
 
@@ -495,40 +533,48 @@ int main(void) {
             // serialPutByte(buf[0]);
             // serialPutByte(buf[1]);
             // serialPutByte(buf[2]);
-            switch (buf[0]) {
-            case 0xaa:                              // header for receive .bin (chunk size)
-                packetSize = buf[1] << 8 | buf[2];  // packet's  length
+            switch (buf[0]) { // header for erase flash page before flash
+            case START_BIN_HEADER:  
+                backupFlashMemory(pagesInParts);
+
+                eraseFlashMemory(APPLICATION_ADDRESS_1, pagesInParts);
+                serialPutString((uint8_t *)"Erase Source Flash Memory Finished...\r\n");
+
+                flashDestination = APPLICATION_ADDRESS_1;
                 break;
 
-            case 0xbb:  // header for finished receive chunk
+            case PACKAGE_BIN_HEADER:   // header for receive .bin (chunk size)
+
+                packetSize = buf[1] << 8 | buf[2];  // packet's  length
+
+                break;
+
+            case FINISHED_BIN_HEADER:   // header for finished receive chunk
                 serialPutString((uint8_t *)"\nFinished received chunk...\r\n");
+
+                chunksFromSource = buf[1] << 8 | buf[2];
+                intToStr(stringBuff, chunksFromSource);
+                serialPutString((uint8_t *)"\nChunk From Source: ");
+                serialPutString(stringBuff);
+
                 intToStr(stringBuff, binSize);
                 serialPutString((uint8_t *)"\n.bin Size: ");
                 serialPutString(stringBuff);
 
-                if ((buf[1] << 8 | buf[2]) == binSize) {
-                    serialPutString((uint8_t *)"\n.bin is same\r\n");
-                    // in this section will be a decision will rollback or not
-                    // if true, continue to firmware
-                    // if false, rollback
+                // in this section will be a decision will rollback or not
+                // if true, continue to firmware
+                // if false, rollback
+                if (checkSumFalse > 0 || (chunksFromSource != chunksInProcess)) {
+                    serialPutString((uint8_t *)"\n\nChecksum failed...\r\n");
+                } else if (checkSumFalse == 0 && (chunksFromSource == chunksInProcess)) {
+                    serialPutString((uint8_t *)"\n\nChecksum OK, go to user apps...\r\n");
                     HAL_Delay(1000);
                     goToApps(APPLICATION_ADDRESS_1);
-                } else {
-                    serialPutString((uint8_t *)"\n.bin is mismatch\r\n");
                 }
 
                 packetSize = 0;
                 binSize = 0;
 
-                break;
-
-            case 0xcc:  // header for erase flash page before flash
-                backupFlashMemory();
-
-                eraseFlashMemory(APPLICATION_ADDRESS_1, PARTS_SIZE);
-                serialPutString((uint8_t *)"Erase Source Flash Memory Finished...\r\n");
-
-                flashDestination = APPLICATION_ADDRESS_1;
                 break;
 
             default:
@@ -566,11 +612,13 @@ int main(void) {
 
                         flashDestination += packetSize;  // shifting flash address
                         binSize += packetSize;           // for checking file size after all .bin writes completely
+                        chunksInProcess++;
 
                         HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
 
-                        serialPutString((uint8_t *)"====>CRC OK...\r\n");
-                        serialPutString((uint8_t *)"Write Flash Memory\r\n");
+                        serialPutString((uint8_t *)"====>CRC OK, Write Flash Memory\r\n");
+                    } else {
+                        checkSumFalse++;
                     }
                 }
             }

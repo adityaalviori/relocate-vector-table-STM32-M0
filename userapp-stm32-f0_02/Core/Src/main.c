@@ -190,7 +190,7 @@ int main(void) {
     LL_IWDG_ReloadCounter(IWDG);
     uint16_t count = 0;
     char stringBuff[30] = {0};
-    serialPutString("---USER APPLICATION 2---");
+    serialPutString("---USER APPLICATION 2---\r\n");
     while (1) {
         LL_IWDG_ReloadCounter(IWDG);
 
