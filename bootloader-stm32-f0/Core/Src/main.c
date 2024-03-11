@@ -20,6 +20,8 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
+#include "stdbool.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -78,7 +80,7 @@ static void MX_USART2_UART_Init(void);
 #define USER_APP_2_STAGE 2
 #define OTA_STAGE 3
 #define ROLLBACK_STAGE 7
-#define FLAG_ADDRESS_OTA (uint32_t)0x0080072e0
+#define FLAG_ADDRESS_OTA (uint32_t)0x080072e0
 
 /**
  * @brief  Convert an Integer to a string
@@ -474,6 +476,7 @@ int main(void) {
     uint16_t chunksFromSource = 0;
     uint16_t chunksInProcess = 0;
     uint32_t flagAddressVal = 0;
+    bool startBinStage = false;
 
     char stringBuff[30] = {0};
 
@@ -511,7 +514,7 @@ int main(void) {
         break;
 
     case OTA_STAGE:
-        serialPutString((uint8_t *)"Receving Mode\r\n");  // ready to receiving serial from UART2
+        serialPutString((uint8_t *)"Receiving Mode\r\n");  // ready to receiving serial from UART2
         break;
 
         // case 4:
@@ -565,13 +568,16 @@ int main(void) {
         break;
 
     default:
-        serialPutString((uint8_t *)"Wrong Number...\r\n");
-        NVIC_SystemReset();
+        // serialPutString((uint8_t *)"Wrong Number...\r\n");
+        // NVIC_SystemReset();
+        eraseFlashMemory(FLAG_ADDRESS_OTA, 1);
+        writeSingleFlashMemory(FLAG_ADDRESS_OTA, USER_APP_1_STAGE);
+        goToApps(APPLICATION_ADDRESS_1);
+        HAL_Delay(1000);
         break;
     }
 
     serialPutString((uint8_t *)"Waiting for Bytes...\r\n");
-
     while (1) {
         // LL_IWDG_ReloadCounter(IWDG);
 
@@ -583,20 +589,26 @@ int main(void) {
             // LL_IWDG_ReloadCounter(IWDG);
             switch (buf[0]) {  // header for erase flash page before flash
             case START_BIN_HEADER:
-                backupFlashMemory(pagesInParts);
+                if (!startBinStage) {  // ensure only once pass this process
+                    backupFlashMemory(pagesInParts);
 
-                eraseFlashMemory(APPLICATION_ADDRESS_1, pagesInParts);
-                serialPutString((uint8_t *)"Erase Source Flash Memory Finished...\r\n");
+                    eraseFlashMemory(APPLICATION_ADDRESS_1, pagesInParts);
+                    serialPutString((uint8_t *)"Erase Source Flash Memory Finished...\r\n");
 
-                flashDestination = APPLICATION_ADDRESS_1;
+                    flashDestination = APPLICATION_ADDRESS_1;
 
-                eraseFlashMemory(FLAG_ADDRESS_OTA, 1);
-                writeSingleFlashMemory(FLAG_ADDRESS_OTA, ROLLBACK_STAGE);
+                    eraseFlashMemory(FLAG_ADDRESS_OTA, 1);
+                    writeSingleFlashMemory(FLAG_ADDRESS_OTA, ROLLBACK_STAGE);
+
+                    startBinStage = true;
+                }
+
                 break;
 
-            case PACKAGE_BIN_HEADER:  // header for receive .bin (chunk size)
-
-                packetSize = buf[1] << 8 | buf[2];  // packet's  length
+            case PACKAGE_BIN_HEADER:                    // header for receive .bin (chunk size)
+                if (startBinStage) {                    // must pass START_BIN_HEADER stage first
+                    packetSize = buf[1] << 8 | buf[2];  // packet's  length
+                }
 
                 break;
 
@@ -617,11 +629,18 @@ int main(void) {
                 // if false, rollback
                 if (checkSumFalse > 0 || (chunksFromSource != chunksInProcess)) {
                     serialPutString((uint8_t *)"\n\nChecksum failed...\r\n");
+                    rollbackFlashMemory(pagesInParts);
+                    HAL_Delay(1000);
+                    eraseFlashMemory(FLAG_ADDRESS_OTA, 1);
+                    writeSingleFlashMemory(FLAG_ADDRESS_OTA, USER_APP_1_STAGE);
+                    goToApps(APPLICATION_ADDRESS_1);
+                    HAL_Delay(1000);
+
                 } else if (checkSumFalse == 0 && (chunksFromSource == chunksInProcess)) {
                     serialPutString((uint8_t *)"\n\nChecksum OK, go to user apps...\r\n");
-                    // HAL_Delay(1000);
-                    // eraseFlashMemory(FLAG_ADDRESS_OTA, 1);
-                    // writeSingleFlashMemory(FLAG_ADDRESS_OTA, USER_APP_1_STAGE);
+                    HAL_Delay(1000);
+                    eraseFlashMemory(FLAG_ADDRESS_OTA, 1);
+                    writeSingleFlashMemory(FLAG_ADDRESS_OTA, USER_APP_1_STAGE);
                     HAL_Delay(1000);
                     goToApps(APPLICATION_ADDRESS_1);
                 }
