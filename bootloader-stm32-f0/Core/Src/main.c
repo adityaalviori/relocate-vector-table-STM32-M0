@@ -265,7 +265,7 @@ void eraseFlashMemory(uint32_t startPageAddress, uint16_t len) {
     /* Fill EraseInit structure*/
     EraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
     EraseInitStruct.PageAddress = StartPage;
-    EraseInitStruct.NbPages = ((EndPage - StartPage) / FLASH_PAGE_SIZE) + 1;
+    EraseInitStruct.NbPages = len;
 
     if (HAL_FLASHEx_Erase(&EraseInitStruct, &PAGEError) != HAL_OK) {
         /*Error occurred while page erase.*/
