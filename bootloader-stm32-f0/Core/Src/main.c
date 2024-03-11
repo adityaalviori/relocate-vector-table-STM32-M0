@@ -74,6 +74,11 @@ static void MX_USART2_UART_Init(void);
 #define START_BIN_HEADER 0xaa
 #define PACKAGE_BIN_HEADER 0xbb
 #define FINISHED_BIN_HEADER 0xcc
+#define USER_APP_1_STAGE 1
+#define USER_APP_2_STAGE 2
+#define OTA_STAGE 3
+#define ROLLBACK_STAGE 7
+#define FLAG_ADDRESS_OTA (uint32_t)0x0080072e0
 
 /**
  * @brief  Convert an Integer to a string
@@ -386,6 +391,35 @@ void rollbackFlashMemory(uint16_t pageInParts) {
     serialPutString((uint8_t *)"Copy Flash Memory Finished...\r\n");
 }
 
+/**
+ * @brief  Writing value to specific's single address
+ * @param  startPageAddress start flash address to write
+ * @param  value value to write
+ */
+void writeSingleFlashMemory(uint32_t startPageAddress, uint32_t value) {
+    HAL_FLASH_Unlock();
+
+    HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, startPageAddress, value);
+
+    HAL_FLASH_Lock();
+}
+
+/**
+ * @brief  Reading value from specific's single address
+ * @param  startPageAddress start flash address to read
+ *
+ * @return value from specific's single address
+ */
+uint32_t readSingleFlashMemory(uint32_t startPageAddress) {
+    HAL_FLASH_Unlock();
+
+    uint32_t value = *(__IO uint32_t *)startPageAddress;
+
+    HAL_FLASH_Lock();
+
+    return value;
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -439,6 +473,7 @@ int main(void) {
     uint16_t checkSumFalse = 0;
     uint16_t chunksFromSource = 0;
     uint16_t chunksInProcess = 0;
+    uint32_t flagAddressVal = 0;
 
     char stringBuff[30] = {0};
 
@@ -448,27 +483,34 @@ int main(void) {
     LL_IWDG_ReloadCounter(IWDG);
 
     serialPutString((uint8_t *)"--BOOTLOADER APPLICATION--\r\n");
-    HAL_Delay(100);
-    serialPutString((uint8_t *)"Choose Number: \r\n");
-    HAL_Delay(100);
-    HAL_UART_Receive(&huart5, recUart, 1, 60000);  // waiting for user-input (1/2/3) in 60s
-    HAL_Delay(100);
+    // HAL_Delay(100);
+    // serialPutString((uint8_t *)"Choose Number: \r\n");
+    // HAL_Delay(100);
+    // HAL_UART_Receive(&huart5, recUart, 1, 60000);  // waiting for user-input (1/2/3) in 60s
+    // HAL_Delay(100);
 
-    intToStr(stringBuff, recUart[0]);
-    serialPutString(stringBuff);
-    serialPutString((uint8_t *)"\r\n");
+    // intToStr(stringBuff, recUart[0]);
+    // serialPutString(stringBuff);
+    // serialPutString((uint8_t *)"\r\n");
     HAL_Delay(1000);
 
-    switch (recUart[0]) {
-    case 1:
+    // read flag address for OTA
+    flagAddressVal = readSingleFlashMemory(FLAG_ADDRESS_OTA);
+    intToStr(stringBuff, flagAddressVal);
+    serialPutString(stringBuff);
+    serialPutString((uint8_t *)"\r\n");
+
+    // switch (recUart[0]) {
+    switch (flagAddressVal) {
+    case USER_APP_1_STAGE:
         goToApps(APPLICATION_ADDRESS_1);  // going to User App 1
         break;
 
-    case 2:
+    case USER_APP_2_STAGE:
         goToApps(APPLICATION_ADDRESS_2);  // going to User App 2
         break;
 
-    case 3:
+    case OTA_STAGE:
         serialPutString((uint8_t *)"Receving Mode\r\n");  // ready to receiving serial from UART2
         break;
 
@@ -512,9 +554,14 @@ int main(void) {
         //     serialPutString((uint8_t *)"Copy Flash Memory Finished...\r\n");
         //     break;
 
-    case 7:  // testing for rollback flash memory to source address
+    case ROLLBACK_STAGE:  // testing for rollback flash memory to source address
         rollbackFlashMemory(pagesInParts);
+        HAL_Delay(1000);
+        eraseFlashMemory(FLAG_ADDRESS_OTA, 1);
+        writeSingleFlashMemory(FLAG_ADDRESS_OTA, USER_APP_1_STAGE);
         goToApps(APPLICATION_ADDRESS_1);
+        HAL_Delay(1000);
+
         break;
 
     default:
@@ -526,30 +573,34 @@ int main(void) {
     serialPutString((uint8_t *)"Waiting for Bytes...\r\n");
 
     while (1) {
-        LL_IWDG_ReloadCounter(IWDG);
+        // LL_IWDG_ReloadCounter(IWDG);
 
         uartState = HAL_UART_Receive(&huart2, buf, HEADER_SIZE, RECEIVE_FROM_ESP32_TIMEOUT);
         if (uartState == HAL_OK) {
             // serialPutByte(buf[0]);
             // serialPutByte(buf[1]);
             // serialPutByte(buf[2]);
-            switch (buf[0]) { // header for erase flash page before flash
-            case START_BIN_HEADER:  
+            // LL_IWDG_ReloadCounter(IWDG);
+            switch (buf[0]) {  // header for erase flash page before flash
+            case START_BIN_HEADER:
                 backupFlashMemory(pagesInParts);
 
                 eraseFlashMemory(APPLICATION_ADDRESS_1, pagesInParts);
                 serialPutString((uint8_t *)"Erase Source Flash Memory Finished...\r\n");
 
                 flashDestination = APPLICATION_ADDRESS_1;
+
+                eraseFlashMemory(FLAG_ADDRESS_OTA, 1);
+                writeSingleFlashMemory(FLAG_ADDRESS_OTA, ROLLBACK_STAGE);
                 break;
 
-            case PACKAGE_BIN_HEADER:   // header for receive .bin (chunk size)
+            case PACKAGE_BIN_HEADER:  // header for receive .bin (chunk size)
 
                 packetSize = buf[1] << 8 | buf[2];  // packet's  length
 
                 break;
 
-            case FINISHED_BIN_HEADER:   // header for finished receive chunk
+            case FINISHED_BIN_HEADER:  // header for finished receive chunk
                 serialPutString((uint8_t *)"\nFinished received chunk...\r\n");
 
                 chunksFromSource = buf[1] << 8 | buf[2];
@@ -568,6 +619,9 @@ int main(void) {
                     serialPutString((uint8_t *)"\n\nChecksum failed...\r\n");
                 } else if (checkSumFalse == 0 && (chunksFromSource == chunksInProcess)) {
                     serialPutString((uint8_t *)"\n\nChecksum OK, go to user apps...\r\n");
+                    // HAL_Delay(1000);
+                    // eraseFlashMemory(FLAG_ADDRESS_OTA, 1);
+                    // writeSingleFlashMemory(FLAG_ADDRESS_OTA, USER_APP_1_STAGE);
                     HAL_Delay(1000);
                     goToApps(APPLICATION_ADDRESS_1);
                 }
@@ -620,11 +674,12 @@ int main(void) {
                     } else {
                         checkSumFalse++;
                     }
+                    LL_IWDG_ReloadCounter(IWDG);
                 }
             }
         }
 
-        LL_IWDG_ReloadCounter(IWDG);
+        // LL_IWDG_ReloadCounter(IWDG);
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */
