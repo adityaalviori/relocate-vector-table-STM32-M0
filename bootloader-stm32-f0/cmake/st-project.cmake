@@ -83,6 +83,7 @@ target_link_options(
 
 target_sources(
     ${TARGET_NAME} PRIVATE
+    "Core/Src/iap.c"
     "Core/Src/main.c"
     "Core/Src/stm32f0xx_hal_msp.c"
     "Core/Src/stm32f0xx_hal_timebase_tim.c"
@@ -90,6 +91,7 @@ target_sources(
     "Core/Src/syscalls.c"
     "Core/Src/sysmem.c"
     "Core/Src/system_stm32f0xx.c"
+    "Core/Src/utils.c"
     "Core/Startup/startup_stm32f030cctx.s"
     "Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_cortex.c"
     "Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_dma.c"

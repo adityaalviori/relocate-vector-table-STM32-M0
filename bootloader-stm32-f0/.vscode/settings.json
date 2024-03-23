@@ -1,4 +1,24 @@
 {
   "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
-  "cmake.configureOnOpen": true
+  "cmake.configureOnOpen": true,
+  "workbench.colorCustomizations": {
+    "activityBar.activeBackground": "#629af2",
+    "activityBar.background": "#629af2",
+    "activityBar.foreground": "#15202b",
+    "activityBar.inactiveForeground": "#15202b99",
+    "activityBarBadge.background": "#fde2ec",
+    "activityBarBadge.foreground": "#15202b",
+    "commandCenter.border": "#e7e7e799",
+    "sash.hoverBorder": "#629af2",
+    "statusBar.background": "#337cee",
+    "statusBar.foreground": "#e7e7e7",
+    "statusBarItem.hoverBackground": "#629af2",
+    "statusBarItem.remoteBackground": "#337cee",
+    "statusBarItem.remoteForeground": "#e7e7e7",
+    "titleBar.activeBackground": "#337cee",
+    "titleBar.activeForeground": "#e7e7e7",
+    "titleBar.inactiveBackground": "#337cee99",
+    "titleBar.inactiveForeground": "#e7e7e799"
+  },
+  "peacock.color": "#337cee"
 }

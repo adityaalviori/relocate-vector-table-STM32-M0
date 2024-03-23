@@ -43,6 +43,18 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#define ONE_PAGE_SIZE 2048
+#define CRC_SIZE 2
+#define HEADER_SIZE 3
+#define RECEIVE_FROM_ESP32_TIMEOUT 2000
+#define START_BIN_HEADER 0xaa
+#define PACKAGE_BIN_HEADER 0xbb
+#define FINISHED_BIN_HEADER 0xcc
+#define USER_APP_1_STAGE 1
+#define USER_APP_2_STAGE 2
+#define OTA_STAGE 3
+#define ROLLBACK_STAGE 7
+#define FLAG_ADDRESS_OTA (uint32_t)0x080072e0
 
 /* USER CODE END Includes */
 
